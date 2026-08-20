@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Priority. | Eisenhower Matrix</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    
+    <!-- Outfit Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#FFFFFF',
+                        foreground: '#111827',
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        muted: '#F3F4F6',
+                        border: '#E5E7EB',
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Strict enforcement of the Flat Design rule */
+        * { box-shadow: none !important; }
+        
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.foreground');
+        }
+
+        /* Hide Scrollbar but keep functionality */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Animation for new tasks */
+        .task-enter { animation: popIn 0.2s ease-out forwards; }
+        @keyframes popIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* Drag & Drop Visuals - No shadows, purely color & scale */
+        .is-dragging .quadrant > * { pointer-events: none; }
+        .drag-over-zone {
+            filter: brightness(0.9) saturate(1.2);
+            transform: scale(1.01);
+        }
+    </style>
+</head>
+<body class="relative min-h-screen overflow-x-hidden pb-20 selection:bg-primary selection:text-background">
+
+    <!-- Strategic Background Decoration (Poster Vibe) -->
+    <div class="fixed top-0 left-0 w-full h-full pointer-events-none z-[-1] overflow-hidden">
+        <div class="absolute -top-32 -right-32 w-96 h-96 bg-muted rounded-full"></div>
+        <div class="absolute top-1/4 -left-20 w-72 h-72 bg-primary/5 rotate-45"></div>
+        <div class="absolute -bottom-40 right-1/4 w-80 h-80 bg-accent/5 rounded-full"></div>
+    </div>
+
+    <main class="max-w-7xl mx-auto p-6 md:p-8 relative z-10">
+        
+        <!-- Header -->
+        <header class="mb-12 mt-4 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+                <h1 class="text-6xl md:text-8xl font-extrabold tracking-tighter text-foreground uppercase leading-none">
+                    Priority.
+                </h1>
+                <p class="text-xl md:text-2xl font-semibold text-foreground/60 tracking-tight mt-2 uppercase">
+                    Do what matters. Eliminate the rest.
+                </p>
+            </div>
+            
+            <!-- Google Calendar External Link Button -->
+            <a href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-3 border-4 border-foreground text-foreground px-8 py-3 rounded-md font-extrabold text-lg transition-all duration-200 hover:bg-foreground hover:text-background hover:scale-105 uppercase tracking-widest w-full md:w-auto flex-shrink-0">
+                <i data-lucide="calendar" class="w-6 h-6 stroke-[3]"></i>
+                Google Calendar
+            </a>
+        </header>
+
+        <!-- Input Section -->
+        <div class="bg-muted p-6 md:p-8 rounded-lg mb-12">
+            <form id="task-form" class="flex flex-col md:flex-row gap-4 relative">
+                <input type="text" id="task-input" placeholder="WHAT NEEDS TO BE DONE?" required
+                    class="flex-1 bg-background border-2 border-transparent focus:border-primary focus:outline-none px-6 py-4 rounded-md text-xl font-bold tracking-tight text-foreground transition-colors placeholder:text-foreground/30 uppercase">
+                
+                <!-- Custom Dropdown -->
+                <div class="relative inline-block w-full md:w-auto min-w-[320px]" id="custom-select-container">
+                    <input type="hidden" id="quadrant-select" value="q1">
+                    
+                    <button type="button" id="select-trigger" class="w-full h-full flex items-center justify-between gap-4 bg-background border-2 border-transparent focus:border-primary focus:outline-none px-6 py-4 rounded-md text-lg font-bold tracking-tight cursor-pointer uppercase text-foreground transition-colors">
+                        <span id="select-label" class="truncate">Do First (Urgent & Important)</span>
+                        <i data-lucide="chevron-down" class="w-5 h-5 stroke-[3] transition-transform duration-200 flex-shrink-0" id="select-icon"></i>
+                    </button>
+                    
+                    <div id="select-menu" class="absolute z-50 left-0 top-[calc(100%+8px)] w-full bg-background border-2 border-foreground rounded-md flex flex-col hidden origin-top transition-all duration-200 scale-y-95 opacity-0">
+                        <button type="button" class="select-option px-6 py-4 text-left font-bold uppercase tracking-tight transition-colors text-foreground hover:bg-accent hover:text-background first:rounded-t-sm" data-value="q1">Do First (Urgent & Important)</button>
+                        <button type="button" class="select-option px-6 py-4 text-left font-bold uppercase tracking-tight transition-colors text-foreground hover:bg-primary hover:text-background" data-value="q2">Schedule (Important, Not Urgent)</button>
+                        <button type="button" class="select-option px-6 py-4 text-left font-bold uppercase tracking-tight transition-colors text-foreground hover:bg-secondary hover:text-background" data-value="q3">Delegate (Urgent, Not Important)</button>
+                        <button type="button" class="select-option px-6 py-4 text-left font-bold uppercase tracking-tight transition-colors text-foreground hover:bg-foreground hover:text-background last:rounded-b-sm" data-value="q4">Eliminate (Neither)</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="bg-primary text-background px-8 py-4 rounded-md font-extrabold text-xl transition-all duration-200 hover:scale-105 hover:brightness-90 uppercase tracking-widest whitespace-nowrap">
+                    Add Task
+                </button>
+            </form>
+        </div>
+
+        <!-- Matrix Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+            
+            <!-- Q1: DO FIRST (Amber) -->
+            <div class="quadrant bg-accent text-foreground p-6 md:p-8 rounded-lg flex flex-col h-[400px] transition-all duration-200" 
+                 data-quadrant="q1" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="h-16 w-16 rounded-full bg-background text-accent flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="zap" class="w-8 h-8 stroke-[3]"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-extrabold tracking-tighter uppercase leading-none">Do First</h2>
+                        <p class="text-sm font-bold uppercase tracking-widest opacity-80 mt-1">Urgent & Important</p>
+                    </div>
+                </div>
+                <div id="q1-list" class="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3 relative z-10"></div>
+            </div>
+
+            <!-- Q2: SCHEDULE (Blue) -->
+            <div class="quadrant bg-primary text-background p-6 md:p-8 rounded-lg flex flex-col h-[400px] transition-all duration-200" 
+                 data-quadrant="q2" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="h-16 w-16 rounded-full bg-background text-primary flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="calendar-days" class="w-8 h-8 stroke-[3]"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-extrabold tracking-tighter uppercase leading-none">Schedule</h2>
+                        <p class="text-sm font-bold uppercase tracking-widest opacity-80 mt-1">Not Urgent, Important</p>
+                    </div>
+                </div>
+                <div id="q2-list" class="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3 relative z-10"></div>
+            </div>
+
+            <!-- Q3: DELEGATE (Emerald) -->
+            <div class="quadrant bg-secondary text-foreground p-6 md:p-8 rounded-lg flex flex-col h-[400px] transition-all duration-200" 
+                 data-quadrant="q3" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="h-16 w-16 rounded-full bg-background text-secondary flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="users" class="w-8 h-8 stroke-[3]"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-extrabold tracking-tighter uppercase leading-none">Delegate</h2>
+                        <p class="text-sm font-bold uppercase tracking-widest opacity-80 mt-1">Urgent, Not Important</p>
+                    </div>
+                </div>
+                <div id="q3-list" class="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3 relative z-10"></div>
+            </div>
+
+            <!-- Q4: ELIMINATE (Gray 900) -->
+            <div class="quadrant bg-foreground text-background p-6 md:p-8 rounded-lg flex flex-col h-[400px] transition-all duration-200" 
+                 data-quadrant="q4" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="h-16 w-16 rounded-full bg-background text-foreground flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="x-octagon" class="w-8 h-8 stroke-[3]"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-extrabold tracking-tighter uppercase leading-none">Eliminate</h2>
+                        <p class="text-sm font-bold uppercase tracking-widest opacity-80 mt-1">Not Urgent, Not Important</p>
+                    </div>
+                </div>
+                <div id="q4-list" class="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3 relative z-10"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // --- State Management ---
+        let tasks = JSON.parse(localStorage.getItem('eisenhower-tasks')) || [];
+
+        // --- Custom Dropdown Logic ---
+        const trigger = document.getElementById('select-trigger');
+        const menu = document.getElementById('select-menu');
+        const label = document.getElementById('select-label');
+        const icon = document.getElementById('select-icon');
+        const hiddenInput = document.getElementById('quadrant-select');
+        const options = document.querySelectorAll('.select-option');
+
+        function toggleSelect(e) {
+            e.preventDefault();
+            const isOpen = !menu.classList.contains('hidden');
+            if (isOpen) {
+                closeSelect();
+            } else {
+                menu.classList.remove('hidden');
+                trigger.classList.add('border-primary');
+                requestAnimationFrame(() => {
+                    menu.classList.remove('scale-y-95', 'opacity-0');
+                    icon.classList.add('rotate-180');
+                });
+            }
+        }
+
+        function closeSelect() {
+            menu.classList.add('scale-y-95', 'opacity-0');
+            icon.classList.remove('rotate-180');
+            trigger.classList.remove('border-primary');
+            setTimeout(() => {
+                menu.classList.add('hidden');
+            }, 200); 
+        }
+
+        trigger.addEventListener('click', toggleSelect);
+
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                hiddenInput.value = e.target.dataset.value;
+                label.textContent = e.target.textContent;
+                closeSelect();
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!trigger.contains(e.target) && !menu.contains(e.target)) {
+                closeSelect();
+            }
+        });
+
+        // --- Core Functions ---
+        function saveAndRender() {
+            localStorage.setItem('eisenhower-tasks', JSON.stringify(tasks));
+            renderTasks();
+        }
+
+        function renderTasks() {
+            ['q1', 'q2', 'q3', 'q4'].forEach(q => {
+                const container = document.getElementById(`${q}-list`);
+                const quadrantTasks = tasks.filter(t => t.quadrant === q);
+                
+                if (quadrantTasks.length === 0) {
+                    container.innerHTML = `
+                        <div class="flex-1 min-h-[120px] flex items-center justify-center text-center opacity-70 font-extrabold tracking-widest uppercase border-4 border-dashed border-current/30 rounded-md">
+                            Clear
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = quadrantTasks.map(t => `
+                    <div draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" id="task-${t.id}" 
+                        class="group bg-background p-4 md:p-5 rounded-md cursor-grab active:cursor-grabbing transition-all duration-200 hover:scale-[1.02] flex items-start sm:items-center justify-between gap-4 task-enter ${t.completed ? 'opacity-60' : ''}">
+                        
+                        <div class="flex items-start sm:items-center gap-4 overflow-hidden w-full">
+                            <button onclick="toggleTask(${t.id})" class="mt-0.5 sm:mt-0 flex-shrink-0 w-7 h-7 rounded-md border-2 border-foreground flex items-center justify-center transition-colors duration-200 overflow-hidden ${t.completed ? 'bg-foreground text-background' : 'text-transparent hover:bg-muted'}">
+                                <i data-lucide="check" class="w-5 h-5 stroke-[3]"></i>
+                            </button>
+                            
+                            <span class="font-bold text-foreground text-lg leading-tight truncate uppercase ${t.completed ? 'line-through text-foreground/40' : ''}">
+                                ${t.text}
+                            </span>
+                        </div>
+                        
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1">
+                            <button onclick="deleteTask(${t.id})" class="p-2 text-foreground/30 hover:text-background hover:bg-red-500 rounded-md hover:scale-110 flex-shrink-0 transition-all duration-200">
+                                <i data-lucide="trash-2" class="w-5 h-5 stroke-[2.5]"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            });
+            
+            lucide.createIcons();
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('task-input');
+            const hiddenSelect = document.getElementById('quadrant-select');
+            
+            if (!input.value.trim()) return;
+            
+            tasks.push({
+                id: Date.now(),
+                text: input.value.trim(),
+                quadrant: hiddenSelect.value,
+                completed: false
+            });
+            
+            input.value = '';
+            saveAndRender();
+        });
+
+        // Direct DOM update instead of triggering a full render cycle
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                localStorage.setItem('eisenhower-tasks', JSON.stringify(tasks));
+                
+                const taskEl = document.getElementById(`task-${id}`);
+                if (taskEl) {
+                    task.completed ? taskEl.classList.add('opacity-60') : taskEl.classList.remove('opacity-60');
+                    
+                    const btn = taskEl.querySelector('button');
+                    if (btn) {
+                        if (task.completed) {
+                            btn.classList.add('bg-foreground', 'text-background');
+                            btn.classList.remove('text-transparent', 'hover:bg-muted');
+                        } else {
+                            btn.classList.remove('bg-foreground', 'text-background');
+                            btn.classList.add('text-transparent', 'hover:bg-muted');
+                        }
+                    }
+                    
+                    const textSpan = taskEl.querySelector('span');
+                    if (textSpan) {
+                        if (task.completed) {
+                            textSpan.classList.add('line-through', 'text-foreground/40');
+                        } else {
+                            textSpan.classList.remove('line-through', 'text-foreground/40');
+                        }
+                    }
+                }
+            }
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveAndRender();
+        }
+
+        // --- Drag and Drop Logic ---
+        function dragStart(ev) {
+            ev.dataTransfer.setData("text", ev.currentTarget.id);
+            document.body.classList.add('is-dragging');
+            setTimeout(() => ev.currentTarget.classList.add('opacity-40', 'scale-95'), 0);
+        }
+
+        function dragEnd(ev) {
+            document.body.classList.remove('is-dragging');
+            ev.currentTarget.classList.remove('opacity-40', 'scale-95');
+            document.querySelectorAll('.quadrant').forEach(q => q.classList.remove('drag-over-zone'));
+        }
+
+        function dragOver(ev) {
+            ev.preventDefault();
+            ev.currentTarget.classList.add('drag-over-zone');
+        }
+
+        function dragLeave(ev) {
+            ev.currentTarget.classList.remove('drag-over-zone');
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            const quadrant = ev.currentTarget;
+            quadrant.classList.remove('drag-over-zone');
+            
+            const data = ev.dataTransfer.getData("text");
+            const taskId = parseInt(data.replace('task-', ''));
+            const newQuadrantId = quadrant.dataset.quadrant;
+            
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex > -1 && tasks[taskIndex].quadrant !== newQuadrantId) {
+                tasks[taskIndex].quadrant = newQuadrantId;
+                saveAndRender();
+            }
+        }
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderTasks();
+        });
+    </script>
+</body>
+</html>
